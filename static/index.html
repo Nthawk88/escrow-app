@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Larana.inc - Secure Payment Protection</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .chat-container { 
+            height: 400px; 
+            overflow-y: auto; 
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e0 #f7fafc;
+        }
+        .chat-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        .chat-container::-webkit-scrollbar-track {
+            background: #f7fafc;
+        }
+        .chat-container::-webkit-scrollbar-thumb {
+            background: #cbd5e0;
+            border-radius: 3px;
+        }
+        .message { 
+            margin: 8px 0; 
+            padding: 12px 16px; 
+            border-radius: 12px; 
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        .system-message { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin: 8px auto;
+            text-align: center;
+        }
+        .user-message { 
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            margin-left: auto;
+        }
+        .payment-message { 
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            margin: 8px auto;
+            text-align: center;
+            font-weight: bold;
+        }
+        .success-message {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+            margin: 8px auto;
+            text-align: center;
+        }
+        .error-message {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+            margin: 8px auto;
+            text-align: center;
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">
+                <i class="fas fa-shield-alt text-blue-600 mr-3"></i>
+                Larana.inc
+            </h1>
+            <p class="text-gray-600">Secure Payment Protection for Safe Transactions</p>
+        </div>
+        
+        <!-- Status Indicator -->
+        <div id="statusIndicator" class="bg-white rounded-lg shadow-md p-4 mb-6 hidden">
+            <div class="flex items-center justify-center">
+                <div class="w-3 h-3 bg-green-500 rounded-full mr-2 pulse"></div>
+                <span class="text-green-600 font-medium">Connected to Server</span>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Room Creation Section -->
+            <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                <div class="flex items-center mb-4">
+                    <i class="fas fa-store text-blue-600 text-xl mr-3"></i>
+                    <h2 class="text-xl font-semibold text-gray-800">Create Escrow Room</h2>
+                </div>
+                <p class="text-gray-600 mb-4">Create a new escrow room as a seller to start a secure transaction.</p>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-user mr-1"></i>Username
+                        </label>
+                        <input type="text" id="sellerUsername" 
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                               placeholder="Enter your username">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-money-bill-wave mr-1"></i>Transaction Amount (IDR)
+                        </label>
+                        <input type="number" id="transactionAmount" 
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                               placeholder="Enter amount in IDR">
+                    </div>
+                </div>
+                
+                <button onclick="createRoom()" 
+                        class="w-full mt-6 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-medium">
+                    <i class="fas fa-plus mr-2"></i>Create Room
+                </button>
+            </div>
+
+            <!-- Room Join Section -->
+            <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                <div class="flex items-center mb-4">
+                    <i class="fas fa-users text-green-600 text-xl mr-3"></i>
+                    <h2 class="text-xl font-semibold text-gray-800">Join Escrow Room</h2>
+                </div>
+                <p class="text-gray-600 mb-4">Join an existing escrow room as a buyer using the room UUID.</p>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-key mr-1"></i>Room UUID
+                        </label>
+                        <input type="text" id="roomUUID" 
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                               placeholder="Enter room UUID">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-user mr-1"></i>Username
+                        </label>
+                        <input type="text" id="buyerUsername" 
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                               placeholder="Enter your username">
+                    </div>
+                </div>
+                
+                <button onclick="joinRoom()" 
+                        class="w-full mt-6 bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 font-medium">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Join Room
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat Room Section -->
+        <div id="chatRoom" class="bg-white rounded-xl shadow-lg p-6 mt-6 hidden border border-gray-200">
+            <div class="flex justify-between items-center mb-6">
+                <div class="flex items-center">
+                    <i class="fas fa-comments text-purple-600 text-xl mr-3"></i>
+                    <h2 class="text-xl font-semibold text-gray-800">Escrow Chat Room</h2>
+                </div>
+                <div class="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
+                    <span id="roomInfo"></span>
+                </div>
+            </div>
+            
+            <!-- Real-time Status Indicator -->
+            <div id="realTimeStatus" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg hidden">
+                <div class="flex items-center">
+                    <div class="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                    <span class="text-sm text-blue-700" id="statusText">Real-time updates active</span>
+                </div>
+            </div>
+            
+            <!-- QR Code Section -->
+            <div id="qrCode" class="mb-6 text-center p-4 bg-gray-50 rounded-lg"></div>
+            
+            <!-- Chat Messages -->
+            <div class="chat-container border border-gray-300 rounded-lg p-4 mb-6 bg-gray-50" id="chatMessages"></div>
+            
+            <!-- Action Buttons -->
+            <div class="flex gap-3 justify-center">
+                <button onclick="confirmPayment('Y')" 
+                        class="bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 font-medium">
+                    <i class="fas fa-check mr-2"></i>Confirm Payment
+                </button>
+                <button onclick="confirmPayment('N')" 
+                        class="bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-3 rounded-lg hover:from-red-700 hover:to-red-800 transition-all duration-200 font-medium">
+                    <i class="fas fa-times mr-2"></i>Cancel Transaction
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div id="loadingSpinner" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+            <div class="bg-white rounded-lg p-6 flex items-center">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
+                <span class="text-gray-700">Processing...</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentRoom = null;
+        let currentUser = null;
+        let currentPrivilege = null;
+        const socket = io();
+
+        // Connection status
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            document.getElementById('statusIndicator').classList.remove('hidden');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+            document.getElementById('statusIndicator').classList.add('hidden');
+        });
+
+        socket.on('message', (data) => {
+            if (data.room === currentRoom) {
+                displayMessage(data.message, data.type);
+                // Auto-scroll to bottom
+                const chatDiv = document.getElementById('chatMessages');
+                chatDiv.scrollTop = chatDiv.scrollHeight;
+            }
+        });
+
+        socket.on('payment_status', (data) => {
+            if (data.room === currentRoom) {
+                showPaymentStatus(data.status, data.message);
+            }
+        });
+
+        socket.on('status', (data) => {
+            console.log('Status:', data.msg);
+        });
+
+        function showLoading() {
+            document.getElementById('loadingSpinner').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingSpinner').classList.add('hidden');
+        }
+
+        function createRoom() {
+            const username = document.getElementById('sellerUsername').value.trim();
+            const amount = document.getElementById('transactionAmount').value.trim();
+            
+            if (!username || !amount) {
+                showNotification('Please fill in all fields', 'error');
+                return;
+            }
+
+            if (amount <= 0) {
+                showNotification('Amount must be greater than 0', 'error');
+                return;
+            }
+
+            showLoading();
+
+            fetch('/create_room', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: username,
+                    amount: parseInt(amount),
+                    privilege: 'penjual'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                if (data.status === 'success') {
+                    currentRoom = data.uuid;
+                    currentUser = username;
+                    currentPrivilege = 'penjual';
+                    joinSocketRoom(currentRoom);
+                    showChatRoom();
+                    displayRoomInfo();
+                    generateQRCode(currentRoom);
+                    loadMessages();
+                    showNotification('Room created successfully!', 'success');
+                } else {
+                    showNotification('Error: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                showNotification('Network error. Please try again.', 'error');
+            });
+        }
+
+        function joinRoom() {
+            const uuid = document.getElementById('roomUUID').value.trim();
+            const username = document.getElementById('buyerUsername').value.trim();
+            
+            if (!uuid || !username) {
+                showNotification('Please fill in all fields', 'error');
+                return;
+            }
+
+            showLoading();
+
+            fetch('/join_room', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    uuid: uuid,
+                    username: username,
+                    privilege: 'pembeli'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                if (data.status === 'success') {
+                    currentRoom = uuid;
+                    currentUser = username;
+                    currentPrivilege = 'pembeli';
+                    joinSocketRoom(currentRoom);
+                    showChatRoom();
+                    displayRoomInfo();
+                    loadMessages();
+                    showNotification('Joined room successfully!', 'success');
+                } else {
+                    showNotification('Error: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                showNotification('Network error. Please try again.', 'error');
+            });
+        }
+
+        function joinSocketRoom(room) {
+            socket.emit('join', { room: room });
+        }
+
+        function showChatRoom() {
+            document.getElementById('chatRoom').classList.remove('hidden');
+            document.getElementById('chatRoom').classList.add('fade-in');
+            // Show real-time status indicator
+            document.getElementById('realTimeStatus').classList.remove('hidden');
+        }
+
+        function displayRoomInfo() {
+            const privilegeText = currentPrivilege === 'penjual' ? 'Seller' : 'Buyer';
+            document.getElementById('roomInfo').textContent = `${privilegeText}: ${currentUser}`;
+        }
+
+        function updateStatusText(text) {
+            const statusText = document.getElementById('statusText');
+            if (statusText) {
+                statusText.textContent = text;
+            }
+        }
+
+        function generateQRCode(uuid) {
+            const qrDiv = document.getElementById('qrCode');
+            qrDiv.innerHTML = `
+                <div class="mb-2">
+                    <i class="fas fa-qrcode text-gray-600 mr-2"></i>
+                    <span class="text-sm text-gray-600">Share this QR code with the buyer</span>
+                </div>
+                <img src="/generate_qr/${uuid}" alt="QR Code" class="mx-auto border-2 border-gray-300 rounded-lg" style="max-width: 200px;">
+                <div class="mt-2 text-xs text-gray-500">Room ID: ${uuid}</div>
+            `;
+        }
+
+        function loadMessages() {
+            fetch('/get_message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uuid: currentRoom })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const chatDiv = document.getElementById('chatMessages');
+                    chatDiv.innerHTML = '';
+                    data.message.forEach(msg => {
+                        displayMessage(msg[0]);
+                    });
+                    // Start real-time message checking
+                    startMessagePolling();
+                }
+            });
+        }
+
+        function startMessagePolling() {
+            // Poll for new messages every 3 seconds
+            if (currentRoom) {
+                setInterval(() => {
+                    fetch('/get_message', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ uuid: currentRoom })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success' && data.message.length > 0) {
+                            // Check if there are new messages
+                            const chatDiv = document.getElementById('chatMessages');
+                            const currentMessageCount = chatDiv.children.length;
+                            
+                            if (data.message.length > currentMessageCount) {
+                                // Add only new messages
+                                for (let i = currentMessageCount; i < data.message.length; i++) {
+                                    displayMessage(data.message[i][0]);
+                                }
+                                updateStatusText(`Last updated: ${new Date().toLocaleTimeString()}`);
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.log('Error polling messages:', error);
+                    });
+                }, 3000);
+            }
+        }
+
+        function displayMessage(message, type = 'user') {
+            const chatDiv = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message fade-in';
+            
+            // Determine message type and styling
+            if (message.includes('[SYSTEM]')) {
+                messageDiv.className += ' system-message';
+            } else if (message.includes('[ADMIN SYSTEM]')) {
+                if (message.includes('[Y]')) {
+                    messageDiv.className += ' success-message';
+                } else if (message.includes('[N]')) {
+                    messageDiv.className += ' error-message';
+                } else {
+                    messageDiv.className += ' payment-message';
+                }
+            } else {
+                messageDiv.className += ' user-message';
+            }
+            
+            messageDiv.textContent = message;
+            chatDiv.appendChild(messageDiv);
+            chatDiv.scrollTop = chatDiv.scrollHeight;
+        }
+
+        function showPaymentStatus(status, message) {
+            // Create a prominent payment status notification
+            const statusDiv = document.createElement('div');
+            statusDiv.className = `fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-6 rounded-lg text-white font-bold text-lg z-50 fade-in`;
+            
+            if (status === 'confirmed') {
+                statusDiv.className += ' bg-green-500';
+                statusDiv.innerHTML = `
+                    <div class="text-center">
+                        <i class="fas fa-check-circle text-3xl mb-2"></i>
+                        <div>${message}</div>
+                    </div>
+                `;
+            } else if (status === 'cancelled') {
+                statusDiv.className += ' bg-red-500';
+                statusDiv.innerHTML = `
+                    <div class="text-center">
+                        <i class="fas fa-times-circle text-3xl mb-2"></i>
+                        <div>${message}</div>
+                    </div>
+                `;
+            }
+            
+            document.body.appendChild(statusDiv);
+            
+            // Remove after 5 seconds
+            setTimeout(() => {
+                statusDiv.remove();
+            }, 5000);
+            
+            // Also show a toast notification
+            showNotification(message, status === 'confirmed' ? 'success' : 'error');
+        }
+
+        function confirmPayment(confirmation) {
+            const message = confirmation === 'Y' 
+                ? `[Y][ADMIN SYSTEM] PEMBAYARAN ${currentPrivilege === 'penjual' ? 'DIKONFIRMASI OLEH PENJUAL' : 'TELAH DILAKUKAN OLEH PEMBELI'}`
+                : `[N][ADMIN SYSTEM] CHATROOM DITUTUP PAKSA OLEH ${currentPrivilege === 'penjual' ? 'PENJUAL' : 'PEMBELI'}`;
+
+            fetch('/send_message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    uuid: currentRoom,
+                    msg: message
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    displayMessage(message);
+                    if (confirmation === 'N') {
+                        setTimeout(() => {
+                            showNotification('Transaction cancelled', 'error');
+                            setTimeout(() => location.reload(), 2000);
+                        }, 1000);
+                    } else {
+                        showNotification('Payment confirmed successfully!', 'success');
+                    }
+                }
+            });
+        }
+
+        function showNotification(message, type) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 p-4 rounded-lg text-white font-medium z-50 fade-in`;
+            
+            if (type === 'success') {
+                notification.className += ' bg-green-500';
+            } else if (type === 'error') {
+                notification.className += ' bg-red-500';
+            } else {
+                notification.className += ' bg-blue-500';
+            }
+            
+            notification.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'} mr-2"></i>
+                    ${message}
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Remove notification after 3 seconds
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Auto-focus on first input
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('sellerUsername').focus();
+        });
+    </script>
+</body>
+</html> 
