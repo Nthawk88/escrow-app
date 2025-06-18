@@ -22,7 +22,7 @@ A secure escrow payment system with real-time chat functionality, built with Fla
 1. **Clone or download the project**
    ```bash
    # If you have the files locally, navigate to the project directory
-   cd aol-softeng-main
+   cd escrow-app-main
    ```
 
 2. **Install dependencies**
